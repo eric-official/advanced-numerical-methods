@@ -27,6 +27,48 @@ def calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha):
     return T
 
 
+def initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t):
+    T = np.zeros((nx, ny))
+
+    # Boundary conditions set-up
+    for i in range(0, nx):
+        T[i, 0] = lower_t
+        T[i, ny - 1] = upper_t
+
+    for j in range(0, ny):
+        T[0, j] = left_t
+        T[nx - 1, j] = right_t
+
+    return T
+
+
+def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
+    error = 10
+    k = 0
+    res = np.array([], float)
+    T_decay = np.copy(T)
+    while error >= 1e-5:
+        print("error", error)
+        for i in range(1, (nx - 1)):
+            for j in range(1, (ny - 1)):
+                a = (T[i + 1, j] - 2 * T[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
+                b = (T[i, j + 1] - 2 * T[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
+                T[i, j] = alpha * (a + b) + T[i, j]
+        error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
+        res = np.append(res, error)
+        T_decay = np.copy(T)
+        k += 1
+
+    plt.loglog(res, "-b")
+    plt.xlabel('number of iteration - Gauss-seidell')
+    plt.ylabel('Residual')
+    plt.title('Convergence History')
+    plt.legend(["Number of Iteration= {:3d} ".format(k)])
+    plt.savefig("res.png", format="png")
+
+    return T
+
+
 def main():
     # Physical parameters
     alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
@@ -62,12 +104,20 @@ def main():
     Y = np.linspace(0, W, ny, endpoint=True)
     X, Y = np.meshgrid(X, Y)
 
-    T = initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t)
-    T = calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha)
+    matrix_solver = "gs"
+    if matrix_solver == "loop":
+        T = initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t)
+        T = calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha)
+    else:
+        T = initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t)
+        T = calculate_gauss_seidel(T, nx, ny, dx, dy, alpha)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(X, Y, T[:, :, int(max_k / dk) - 1], cmap='gist_rainbow_r', edgecolor='none')
+    if matrix_solver == "loop":
+        ax.plot_surface(X, Y, T[:, :, int(max_k / dk) - 1], cmap='gist_rainbow_r', edgecolor='none')
+    else:
+        ax.plot_surface(X, Y, T[:, :], cmap='gist_rainbow_r', edgecolor='none')
     ax.set_xlabel('X [m]')
     ax.set_ylabel('Y [m]')
     ax.set_zlabel('T [°]')
