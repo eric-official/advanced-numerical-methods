@@ -2,6 +2,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t):
+    T = np.zeros((nx, ny, int(max_k / dk)))
+
+    # Boundary conditions set-up
+    for i in range(0, nx):
+        T[i, 0, 0] = lower_t
+        T[i, ny - 1, 0] = upper_t
+
+    for j in range(0, ny):
+        T[0, j, 0] = left_t
+        T[nx - 1, j, 0] = right_t
+
+    return T
+
+
 def calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha):
     for k in range(0, int(max_k / dk) - 1):
         for i in range(1, (nx - 1)):
@@ -9,6 +24,7 @@ def calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha):
                 a = (T[i + 1, j, k] - 2 * T[i, j, k] + T[i - 1, j, k]) / dx ** 2  # d2dx2
                 b = (T[i, j + 1, k] - 2 * T[i, j, k] + T[i, j - 1, k]) / dy ** 2  # d2dy2
                 T[i, j, k + 1] = alpha * (a + b) + T[i, j, k]
+    return T
 
 
 def main():
@@ -41,23 +57,13 @@ def main():
     if cfl_x > 0.5 or cfl_y > 0.5:
         raise TypeError('Unstable Solution!')
 
-    T = np.zeros((nx, ny, int(max_k / dk)))
-
-    # Boundary conditions set-up
-    for i in range(0, nx):
-        T[i, 0, 0] = lower_t
-        T[i, ny - 1, 0] = upper_t
-
-    for j in range(0, ny):
-        T[0, j, 0] = left_t
-        T[nx - 1, j, 0] = right_t
-
     # Generate 2D mesh
     X = np.linspace(0, L, nx, endpoint=True)
     Y = np.linspace(0, W, ny, endpoint=True)
     X, Y = np.meshgrid(X, Y)
 
-    calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha)
+    T = initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t)
+    T = calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
