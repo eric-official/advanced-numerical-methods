@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Physical parameters
-alpha = 1.172E-5  # thermal diffusivity of steel with 1% carbon
+alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
 # k = 9.7e-5 # thermal diffusivity of aluminium
 L = 1.0  # length
 W = 1.0  # width
