@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse.linalg import cg
 
 
 def initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t):
@@ -69,6 +70,33 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
     return T
 
 
+def calculate_sor(T, nx, ny, dx, dy, alpha):
+    error = 10
+    k = 0
+    omega = 1.5
+    res = np.array([], float)
+    T_decay = np.copy(T)
+    while error >= 1e-4:
+        print("error", error)
+        for i in range(1, (nx - 1)):
+            for j in range(1, (ny - 1)):
+                a = (T[i + 1, j] - 2 * T[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
+                b = (T[i, j + 1] - 2 * T[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
+                T[i, j] = (1 - omega) * T_decay[i, j] + omega * (alpha * (a + b) + T[i, j])
+        error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
+        res = np.append(res, error)
+        T_decay = np.copy(T)
+        k += 1
+
+    plt.loglog(res, "-b")
+    plt.xlabel('number of iteration - Successive over-relaxation')
+    plt.ylabel('Residual')
+    plt.title('Convergence History')
+    plt.legend(["Number of Iteration= {:3d} ".format(k)])
+    plt.savefig("res.png", format="png")
+
+    return T
+
 def main():
     # Physical parameters
     alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
@@ -104,14 +132,16 @@ def main():
     Y = np.linspace(0, W, ny, endpoint=True)
     X, Y = np.meshgrid(X, Y)
 
-    matrix_solver = "gs"
+    matrix_solver = "sor"
     if matrix_solver == "loop":
         T = initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t)
         T = calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha)
-    else:
+    elif matrix_solver == "gauss-seidel":
         T = initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t)
         T = calculate_gauss_seidel(T, nx, ny, dx, dy, alpha)
-
+    elif matrix_solver == "sor":
+        T = initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t)
+        T = calculate_sor(T, nx, ny, dx, dy, alpha)
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     if matrix_solver == "loop":
