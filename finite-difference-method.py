@@ -66,7 +66,7 @@ def calculate_jacobi(T, max_k, dk, nx, ny, dx, dy, alpha):
     plt.ylabel('Residual')
     plt.title('Convergence History')
     plt.legend(["Number of Iteration= {:3d} ".format(k)])
-    plt.savefig("plots/jacobi-error-convergence-{}.png".format(nx), format="png")
+    plt.savefig("homework1-task1-plots/jacobi-error-convergence-{}.png".format(nx), format="png")
 
     return T
 
@@ -105,7 +105,7 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
     plt.ylabel('Residual')
     plt.title('Convergence History')
     plt.legend(["Number of Iteration= {:3d} ".format(k)])
-    plt.savefig("plots/gs-error-convergence-{}.png".format(nx), format="png")
+    plt.savefig("homework1-task1-plots/gs-error-convergence-{}.png".format(nx), format="png")
 
     return T
 
@@ -145,7 +145,7 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
     plt.ylabel('Residual')
     plt.title('Convergence History')
     plt.legend(["Number of Iteration= {:3d} ".format(k)])
-    plt.savefig("plots/sor-error-convergence-{}.png".format(nx), format="png")
+    plt.savefig("homework1-task1-plots/sor-error-convergence-{}.png".format(nx), format="png")
 
     return T
 
@@ -199,7 +199,7 @@ def run_main_logic(solver, size):
     ax.set_xlabel('X [m]')
     ax.set_ylabel('Y [m]')
     fig.colorbar(cs, ticks=[i for i in np.arange(0.0, 1.05, 0.05)])
-    plt.savefig("plots/contour-{}-{}.png".format(solver, size), format="png")
+    plt.savefig("homework1-task1-plots/contour-{}-{}.png".format(solver, size), format="png")
     plt.show()
 
     return 5
@@ -233,7 +233,7 @@ def config_search_space():
     plt.ylim([0, 10])
     plt.legend()
     plt.title("Error of matrix solvers with different grid densities")
-    plt.savefig("plots/grid-density-errors.png", format="png")
+    plt.savefig("homework1-task1-plots/grid-density-errors.png", format="png")
     plt.show()
 
 
