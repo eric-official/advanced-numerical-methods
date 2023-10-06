@@ -1,6 +1,7 @@
+import math
+
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.sparse.linalg import cg
 
 
 def initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t):
@@ -18,17 +19,7 @@ def initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_
     return T
 
 
-def calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha):
-    for k in range(0, int(max_k / dk) - 1):
-        for i in range(1, (nx - 1)):
-            for j in range(1, (ny - 1)):
-                a = (T[i + 1, j, k] - 2 * T[i, j, k] + T[i - 1, j, k]) / dx ** 2  # d2dx2
-                b = (T[i, j + 1, k] - 2 * T[i, j, k] + T[i, j - 1, k]) / dy ** 2  # d2dy2
-                T[i, j, k + 1] = alpha * (a + b) + T[i, j, k]
-    return T
-
-
-def initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t):
+def initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t):
     T = np.zeros((nx, ny))
 
     # Boundary conditions set-up
@@ -41,22 +32,74 @@ def initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t):
     return T
 
 
-def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
-    error = 10
+def calculate_jacobi(T, max_k, dk, nx, ny, dx, dy, alpha):
+
+    # Initialize loop parameters
+    current_error = decay_error = 10
     k = 0
     res = np.array([], float)
     T_decay = np.copy(T)
-    while error >= 1e-5:
+
+    while current_error >= 1e-5:
+
+        # Print error every log10 steps
+        if int(math.log10(current_error)) != int(math.log10(decay_error)):
+            print("Current error", current_error)
+        decay_error = current_error
+
+        # Calculate with Jacobi method
         for i in range(1, (nx - 1)):
             for j in range(1, (ny - 1)):
-                a = (T[i + 1, j] - 2 * T[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
-                b = (T[i, j + 1] - 2 * T[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
-                T[i, j] = alpha * (a + b) + T[i, j]
-        error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
-        res = np.append(res, error)
+                a = (T_decay[i + 1, j] - 2 * T_decay[i, j] + T_decay[i - 1, j]) / dx ** 2  # d2dx2
+                b = (T_decay[i, j + 1] - 2 * T_decay[i, j] + T_decay[i, j - 1]) / dy ** 2  # d2dy2
+                T[i, j] = alpha * (a + b) + T_decay[i, j]
+
+        # Update loop parameters
+        current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
+        res = np.append(res, current_error)
         T_decay = np.copy(T)
         k += 1
 
+    # Plot error convergence
+    plt.loglog(res, "-b")
+    plt.xlabel('number of iteration - Gauss-seidell')
+    plt.ylabel('Residual')
+    plt.title('Convergence History')
+    plt.legend(["Number of Iteration= {:3d} ".format(k)])
+    plt.savefig("plots/jacobi-error-convergence-{}.png".format(nx), format="png")
+
+    return T
+
+
+def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
+
+    # Initialize loop parameters
+    current_error = decay_error = 10
+    k = 0
+    res = np.array([], float)
+    T_decay = np.copy(T)
+
+    while current_error >= 1e-5:
+
+        # Print error every log10 steps
+        if int(math.log10(current_error)) != int(math.log10(decay_error)):
+            print("Current error", current_error)
+        decay_error = current_error
+
+        # Calculate with Gauss Seidel method
+        for i in range(1, (nx - 1)):
+            for j in range(1, (ny - 1)):
+                a = (T_decay[i + 1, j] - 2 * T_decay[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
+                b = (T_decay[i, j + 1] - 2 * T_decay[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
+                T[i, j] = alpha * (a + b) + T_decay[i, j]
+
+        # Update loop parameters
+        current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
+        res = np.append(res, current_error)
+        T_decay = np.copy(T)
+        k += 1
+
+    # Plot error convergence
     plt.loglog(res, "-b")
     plt.xlabel('number of iteration - Gauss-seidell')
     plt.ylabel('Residual')
@@ -68,23 +111,35 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
 
 
 def calculate_sor(T, nx, ny, dx, dy, alpha):
-    error = 10
+
+    # Initialize loop parameters
+    current_error = decay_error = 10
     k = 0
-    omega = 1.5
     res = np.array([], float)
     T_decay = np.copy(T)
-    while error >= 1e-5:
-        print("error", error)
+    omega = 1.5
+
+    while current_error >= 1e-5:
+
+        # Print error every log10 steps
+        if int(math.log10(current_error)) != int(math.log10(decay_error)):
+            print("Current error", current_error)
+        decay_error = current_error
+
+        # Calculate with SOR method
         for i in range(1, (nx - 1)):
             for j in range(1, (ny - 1)):
-                a = (T_decay[i + 1, j] - 2 * T[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
-                b = (T_decay[i, j + 1] - 2 * T[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
+                a = (T_decay[i + 1, j] - 2 * T_decay[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
+                b = (T_decay[i, j + 1] - 2 * T_decay[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
                 T[i, j] = (1 - omega) * T_decay[i, j] + omega * (alpha * (a + b) + T[i, j])
-        error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
-        res = np.append(res, error)
+
+        # Update loop parameters
+        current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
+        res = np.append(res, current_error)
         T_decay = np.copy(T)
         k += 1
 
+    # Plot error convergence
     plt.loglog(res, "-b")
     plt.xlabel('number of iteration - Successive over-relaxation')
     plt.ylabel('Residual')
@@ -130,22 +185,17 @@ def run_main_logic(solver, size):
     Y = np.linspace(0, W, ny, endpoint=True)
     X, Y = np.meshgrid(X, Y)
 
-    if solver == "loop":
-        T = initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t)
-        T = calculate_finite_differences(T, max_k, dk, nx, ny, dx, dy, alpha)
+    T = initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t)
+    if solver == "jacobi":
+        T = calculate_jacobi(T, max_k, dk, nx, ny, dx, dy, alpha)
     elif solver == "gauss-seidel":
-        T = initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t)
         T = calculate_gauss_seidel(T, nx, ny, dx, dy, alpha)
     elif solver == "sor":
-        T = initialize_gauss_seidel_grid(nx, ny, lower_t, upper_t, left_t, right_t)
         T = calculate_sor(T, nx, ny, dx, dy, alpha)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    if solver == "loop":
-        cs = ax.contourf(X, Y, T[:, :, int(max_k / dk) - 1], levels=20, cmap='gist_rainbow_r')
-    else:
-        cs = ax.contourf(X, Y, T[:, :], levels=20, cmap='gist_rainbow_r')
+    cs = ax.contourf(X, Y, T[:, :], levels=20, cmap='gist_rainbow_r')
     ax.set_xlabel('X [m]')
     ax.set_ylabel('Y [m]')
     fig.colorbar(cs, ticks=[i for i in np.arange(0.0, 1.05, 0.05)])
@@ -159,7 +209,7 @@ def config_search_space():
 
     x_values = [5, 10, 20, 50, 100]
     solver_errors = {}
-    for solver in ["loop", "gauss-seidel", "sor"]:
+    for solver in ["jacobi", "gauss-seidel", "sor"]:
         print(solver)
         errors = []
         for size in x_values:
@@ -173,7 +223,7 @@ def config_search_space():
 
     x_values = [1/i for i in x_values]
 
-    plt.plot(x_values, solver_errors["loop"], label="loop")
+    plt.plot(x_values, solver_errors["jacobi"], label="Jacobi")
     plt.plot(x_values, solver_errors["gauss-seidel"], label="Gauss Seidel")
     plt.plot(x_values, solver_errors["sor"], label="Successive over-relaxation")
 
