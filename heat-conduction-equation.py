@@ -8,21 +8,6 @@ import seaborn as sns
 np.seterr(divide = 'ignore')
 
 
-def initialize_finite_difference_grid(max_k, dk, nx, ny, lower_t, upper_t, left_t, right_t):
-    T = np.zeros((nx, ny, int(max_k / dk)))
-
-    # Boundary conditions set-up
-    for i in range(0, nx):
-        T[i, 0, 0] = lower_t
-        T[i, ny - 1, 0] = upper_t
-
-    for j in range(0, ny):
-        T[0, j, 0] = left_t
-        T[nx - 1, j, 0] = right_t
-
-    return T
-
-
 def initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t):
     T = np.zeros((nx, ny))
 
@@ -41,7 +26,7 @@ def calculate_jacobi(T, nx, ny, dx, dy, alpha):
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
-    res = np.array([], float)
+    convergence = np.array([], float)
     T_decay = np.copy(T)
 
     while current_error >= 1e-5:
@@ -60,21 +45,11 @@ def calculate_jacobi(T, nx, ny, dx, dy, alpha):
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
-        res = np.append(res, current_error)
+        convergence = np.append(convergence, current_error)
         T_decay = np.copy(T)
         k += 1
 
-    # Plot error convergence
-    plt.loglog(res, "-b")
-    plt.xlabel('number of iteration - Gauss-seidell')
-    plt.ylabel('Residual')
-    plt.grid()
-    plt.title('Convergence History')
-    plt.legend(["Number of Iteration= {:3d} ".format(k)])
-    plt.savefig("homework1-task1-plots/jacobi-error-convergence-{}.png".format(nx), format="png")
-    plt.clf()
-
-    return T
+    return T, convergence
 
 
 def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
@@ -82,7 +57,7 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
-    res = np.array([], float)
+    convergence = np.array([], float)
     T_decay = np.copy(T)
 
     while current_error >= 1e-5:
@@ -101,21 +76,11 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
-        res = np.append(res, current_error)
+        convergence = np.append(convergence, current_error)
         T_decay = np.copy(T)
         k += 1
 
-    # Plot error convergence
-    plt.loglog(res, "-b")
-    plt.xlabel('number of iteration - Gauss-seidell')
-    plt.ylabel('Residual')
-    plt.grid()
-    plt.title('Convergence History')
-    plt.legend(["Number of Iteration= {:3d} ".format(k)])
-    plt.savefig("homework1-task1-plots/gs-error-convergence-{}.png".format(nx), format="png")
-    plt.clf()
-
-    return T
+    return T, convergence
 
 
 def calculate_sor(T, nx, ny, dx, dy, alpha):
@@ -123,7 +88,7 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
-    res = np.array([], float)
+    convergence = np.array([], float)
     T_decay = np.copy(T)
     omega = 1.5
 
@@ -143,25 +108,15 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
-        res = np.append(res, current_error)
+        convergence = np.append(convergence, current_error)
         T_decay = np.copy(T)
         k += 1
 
-    # Plot error convergence
-    plt.loglog(res, "-b")
-    plt.xlabel('number of iteration - Successive over-relaxation')
-    plt.ylabel('Residual')
-    plt.grid()
-    plt.title('Convergence History')
-    plt.legend(["Number of Iteration= {:3d} ".format(k)])
-    plt.savefig("homework1-task1-plots/sor-error-convergence-{}.png".format(nx), format="png")
-    plt.clf()
-
-    return T
+    return T, convergence
 
 
 def calculate_exact(T, nx, ny, dx, dy):
-    equation_steps = 200
+    equation_steps = 10
 
     for i in range(1, (nx - 1)):
         x = i * dx
@@ -205,12 +160,50 @@ def plot_contour(X, Y, T, solver, size):
     plt.clf()
 
 
-def plot_centerline(x, y, solver, size):
-    plt.plot(x, y)
-    plt.title("Centerline plot for {} with grid of size {}".format(solver, size))
-    plt.xlabel("Y")
-    plt.ylabel("Phi")
-    plt.savefig("homework1-task1-plots/centerline-{}-{}.png".format(solver, size), format="png")
+def plot_centerline(solver_results, x_values):
+    for key, value in solver_results.items():
+        for el in x_values:
+            plt.plot(np.linspace(0, 1, el, endpoint=True), value[el]["centerline"], label="Size "+str(el))
+        plt.title("Centerline plot for {}".format(key))
+        plt.xlabel("Y")
+        plt.ylabel("Phi")
+        plt.grid()
+        plt.legend()
+        plt.savefig("homework1-task1-plots/centerline-{}.png".format(key), format="png")
+        plt.clf()
+
+
+def plot_error_convergence(solver_results, x_values):
+    for el in x_values:
+        plt.loglog(solver_results["jacobi"][el]["convergence"], label="Jacobi")
+        plt.loglog(solver_results["gauss-seidel"][el]["convergence"], label="Gauss Seidel", linestyle="dashed")
+        plt.loglog(solver_results["sor"][el]["convergence"], label="Successive over-relaxation")
+
+        plt.xlabel('Number of Iterations')
+        plt.ylabel('Residual')
+        plt.grid()
+        plt.title('Convergence History with grid size {}'.format(el))
+        plt.legend()
+        plt.savefig("homework1-task1-plots/error-convergence-{}.png".format(el), format="png")
+        plt.clf()
+
+
+def plot_mae(solver_results, x_values):
+    px_values = [1 / i for i in x_values]
+
+    # Create multiple lines for plot
+    plt.plot(px_values, [solver_results["jacobi"][i]["mae"] for i in x_values], label="Jacobi")
+    plt.plot(px_values, [solver_results["gauss-seidel"][i]["mae"] for i in x_values], label="Gauss Seidel")
+    plt.plot(px_values, [solver_results["sor"][i]["mae"] for i in x_values], label="Successive over-relaxation")
+
+    # Edit plot settings
+    plt.xlabel("Delta X")
+    plt.ylabel("Error")
+    plt.xscale("log")
+    plt.legend()
+    plt.grid()
+    plt.title("Error of matrix solvers with different grid densities")
+    plt.savefig("homework1-task1-plots/grid-density-errors.png", format="png")
     plt.clf()
 
 
@@ -252,57 +245,49 @@ def run_main_logic(solver, size):
     T_init = initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t)
 
     if solver == "jacobi":
-        T_solved = calculate_jacobi(T_init, nx, ny, dx, dy, alpha)
+        T_solved, convergence = calculate_jacobi(T_init, nx, ny, dx, dy, alpha)
     elif solver == "gauss-seidel":
-        T_solved = calculate_gauss_seidel(T_init, nx, ny, dx, dy, alpha)
+        T_solved, convergence = calculate_gauss_seidel(T_init, nx, ny, dx, dy, alpha)
     elif solver == "sor":
-        T_solved = calculate_sor(T_init, nx, ny, dx, dy, alpha)
+        T_solved, convergence = calculate_sor(T_init, nx, ny, dx, dy, alpha)
     else:
         raise TypeError('Solver not valid!')
 
-    plot_centerline(np.linspace(0, W, ny, endpoint=True), T_solved[:, int(nx / 2)], solver, size)
     plot_contour(X, Y, T_solved, solver, size)
 
     T_exact = calculate_exact(T_init, nx, ny, dx, dy)
-    #print("solved\n", pd.DataFrame(T_solved))
-    #print("exact\n", pd.DataFrame(T_exact))
     plot_contour(X, Y, T_exact, "Exact", size)
 
+    centerline = T_solved[:, int(nx / 2)]
     mae = calculate_mean_absolute_error(T_solved, T_exact, nx, ny)
-    return mae
+    return centerline, convergence, mae
 
 
 def config_search_space():
 
     # Initialize variables
-    x_values = [20, 50]
-    solver_errors = {}
+    x_values = [20, 30]
+    solver_results = {}
 
     # Iterate over variable combinations
     for solver in ["jacobi", "gauss-seidel", "sor"]:
-        print(solver)
-        errors = []
+        solver_results[solver] = {}
         for size in x_values:
-            error = run_main_logic(solver, size)
-            errors.append(error)
-        solver_errors[solver] = errors
+            print("----------------------")
+            print("Current solver is {} with grid size of {}". format(solver, size))
+            print("----------------------")
 
-    x_values = [1/i for i in x_values]
+            solver_results[solver][size] = {}
+            centerline, convergence, mae = run_main_logic(solver, size)
+            solver_results[solver][size]["centerline"] = centerline
+            solver_results[solver][size]["convergence"] = convergence
+            solver_results[solver][size]["mae"] = mae
 
-    # Create multiple lines for plot
-    plt.plot(x_values, solver_errors["jacobi"], label="Jacobi")
-    plt.plot(x_values, solver_errors["gauss-seidel"], label="Gauss Seidel")
-    plt.plot(x_values, solver_errors["sor"], label="Successive over-relaxation")
+            print(" ")
 
-    # Edit plot settings
-    plt.xlabel("Delta X")
-    plt.ylabel("Error")
-    plt.xscale("log")
-    plt.legend()
-    plt.grid()
-    plt.title("Error of matrix solvers with different grid densities")
-    plt.savefig("homework1-task1-plots/grid-density-errors.png", format="png")
-    plt.clf()
+    plot_centerline(solver_results, x_values)
+    plot_error_convergence(solver_results, x_values)
+    plot_mae(solver_results, x_values)
 
 
 def manual_run(solver, size):
