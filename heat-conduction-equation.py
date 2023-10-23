@@ -266,7 +266,7 @@ def run_main_logic(solver, size):
 def config_search_space():
 
     # Initialize variables
-    x_values = [20, 30]
+    x_values = [20, 50]
     solver_results = {}
 
     # Iterate over variable combinations
