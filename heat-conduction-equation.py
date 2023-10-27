@@ -152,7 +152,7 @@ def calculate_mean_absolute_error(T_solved, T_exact, nx, ny):
 def plot_contour(X, Y, T, solver, size):
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    cs = ax.contourf(X, Y, T[:, :], levels=20, cmap='gist_rainbow_r')
+    cs = ax.contourf(X, Y, T[:, :], levels=20, cmap='viridis_r')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     fig.colorbar(cs, ticks=[i for i in np.arange(0.0, 1.05, 0.05)], label="Phi")
