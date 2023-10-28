@@ -175,9 +175,13 @@ def plot_centerline(solver_results, x_values):
 
 def plot_error_convergence(solver_results, x_values):
     for el in x_values:
-        plt.loglog(solver_results["jacobi"][el]["convergence"], label="Jacobi")
-        plt.loglog(solver_results["gauss-seidel"][el]["convergence"], label="Gauss Seidel", linestyle="dashed")
-        plt.loglog(solver_results["sor"][el]["convergence"], label="Successive over-relaxation")
+        jacobi_values = solver_results["jacobi"][el]["convergence"]
+        gs_values = solver_results["gauss-seidel"][el]["convergence"]
+        sor_values = solver_results["sor"][el]["convergence"]
+
+        plt.loglog(jacobi_values, label="Jacobi: {}".format(len(jacobi_values)))
+        plt.loglog(gs_values, label="Gauss Seidel: {}".format(len(gs_values)), linestyle="dashed")
+        plt.loglog(sor_values, label="SOR: {}".format(len(sor_values)))
 
         plt.xlabel('Number of Iterations')
         plt.ylabel('Residual')
