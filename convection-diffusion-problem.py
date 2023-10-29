@@ -74,7 +74,7 @@ def calculate_finite_volume(xnode, ynode, xcell, ycell, dx, dy, i, j, gamma, rho
     return a_e, a_w, a_n, a_s, a_p
 
 
-def calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dt):
+def calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dk):
     a_w = np.zeros((nx, ny))
     a_e = np.zeros((nx, ny))
     a_n = np.zeros((nx, ny))
@@ -89,11 +89,11 @@ def calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, g
             delx_w = xcell[i] - xcell[i - 1]
             dely_n = ycell[j + 1] - ycell[j]
             dely_s = ycell[j] - ycell[j - 1]
-            a_w[i - 1, j - 1] = gamma * dy / delx_w - min(rho * u[i - 1, j] * dy * (-1), 0)
-            a_e[i - 1, j - 1] = gamma * dy / delx_e - min(rho * u[i, j] * dy, 0)
-            a_n[i - 1, j - 1] = gamma * dx / dely_n - min(rho * v[i, j] * dx, 0)
-            a_s[i - 1, j - 1] = gamma * dx / dely_s - min(rho * v[i, j - 1] * dx * (-1), 0)
-            ap0 = rho * dx * dy / dt
+            a_w[i - 1, j - 1] = gamma * dy / delx_w - rho * u[i - 1, j] * dy * (-1)
+            a_e[i - 1, j - 1] = gamma * dy / delx_e - rho * u[i, j] * dy
+            a_n[i - 1, j - 1] = gamma * dx / dely_n - rho * v[i, j] * dx
+            a_s[i - 1, j - 1] = gamma * dx / dely_s - rho * v[i, j - 1] * dx * (-1)
+            ap0 = rho * dx * dy / dk
             a_p[i - 1, j - 1] = ap0
 
     return a_e, a_w, a_n, a_s, a_p, ap0
@@ -250,6 +250,88 @@ def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, ycell, a_e, a_w, a_n, a
     return T
 
 
+def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, a_e, a_w, a_n, a_s, gamma, u, v):
+    ap0 = np.zeros((nx, ny))
+    a_p = np.zeros((nx, ny))
+
+    for k in np.arange(0, max_k):
+        Told = T.copy()
+        a_e, a_w, a_n, a_s, _, _ = calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dk)
+
+        for i in range(1, nx + 1):
+            dx = xnode[i] - xnode[i - 1]
+            for j in range(1, ny + 1):
+                dy = ynode[j] - ynode[j - 1]
+                ap0[i - 1, j - 1] = rho * dx * dy / dk
+                a_p[i - 1, j - 1] = a_w[i - 1, j - 1] + a_e[i - 1, j - 1] + a_n[i - 1, j - 1] + a_s[i - 1, j - 1] + ap0[i - 1, j - 1]
+                B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * Told[i - 1, j - 1]
+
+        for i in range(1, nx + 1):
+            for j in range(1, ny + 1):
+                B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * Told[i, j]
+
+        for i in range(0, nx):
+            for j in range(0, ny):
+                if i == 0:
+                    Tval = 1 - ycell[j + 1] / ymax
+                    B[(j - 1) * nx + i] = a_w[i, j] * Tval + B[(j - 1) * nx + i]
+                    a_w[i, j] = 0.0
+                elif i == nx - 1:
+                    a_p[i, j] = a_p[i, j] - a_e[i, j]
+                    a_e[i, j] = 0.0
+                if j == 0:
+                    a_p[i, j] = a_p[i, j] - a_s[i, j]
+                    a_s[i, j] = 0.0
+                elif j == ny - 1:
+                    Tval = 0.0
+                    B[(j - 1) * nx + i] = a_n[i, j] * Tval + B[(j - 1) * nx + i]
+                    a_n[i, j] = 0.0
+
+        tol = 1.e-5
+        iter_max = 10000
+        iter = 0
+        ea = 0.0
+
+        T = np.zeros((nx + 2, ny + 2))
+        iter = 0
+
+        while True:
+            eamax = 0.0
+            for i in range(1, nx + 1):
+                for j in range(1, ny + 1):
+                    if i == 1:
+                        t_w = 1 - ycell[j] / ymax
+                    else:
+                        t_w = T[i - 1, j]
+                    if i == nx:
+                        t_e = T[i, j]
+                    else:
+                        t_e = T[i + 1, j]
+                    if j == 1:
+                        t_s = T[i, j]
+                    else:
+                        t_s = T[i, j - 1]
+                    if j == ny:
+                        t_n = 0
+                    else:
+                        t_n = T[i, j + 1]
+
+                    T_old = T[i, j]
+                    T_new = (a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[
+                        i - 1, j - 1] * t_s + B[(j - 2) * nx + i - 1]) / a_p[i - 1, j - 1]
+                    T[i, j] = T_old + (T_new - T_old)
+                    if T[i, j] != 0:
+                        ea = abs(T[i, j] - T_old) / T[i, j] * 100
+                    if ea >= eamax:
+                        eamax = ea
+
+            iter += 1
+            if iter >= iter_max or eamax <= tol:
+                break
+
+    return T
+
+
 def plot_contour(X, Y, T, solver, size):
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -353,11 +435,8 @@ def run_main_logic(solver, size):
 def run_unsteady_main_logic(solver, size):
     nx = ny = size
 
-    B = np.zeros((1, nx * ny))
+    B = np.zeros(nx * ny)
     T = np.zeros((nx + 2, ny + 2))
-
-    t0 = 0
-    t1 = 1
 
     dx = 1 / nx
     dy = 1 / ny
@@ -369,7 +448,7 @@ def run_unsteady_main_logic(solver, size):
     rho = 1.2
 
     dk = 0.02
-    max_k = 5.0
+    max_k = 10000
 
     xnode = np.linspace(xmin, xmax, nx + 1)
     xcell = np.linspace(xmin + dx / 2, xmax - dx / 2, nx)
@@ -391,7 +470,12 @@ def run_unsteady_main_logic(solver, size):
             v[i, j] = -ynode[j]
 
     a_e, a_w, a_n, a_s, a_p, ap0 = calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dk)
-    T = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, ycell, a_e, a_w, a_n, a_s, a_p, ap0)
+    if solver == "explicit":
+        T = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, ycell, a_e, a_w, a_n, a_s, a_p, ap0)
+    elif solver == "implicit":
+        T = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, a_e, a_w, a_n, a_s, gamma, u, v)
+    else:
+        raise TypeError('Solver not valid!')
     plot_unsteady_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax)
 
 
@@ -420,7 +504,7 @@ def config_unsteady_search_space():
     solver_results = {}
 
     # Iterate over variable combinations
-    for solver in ["explicit"]:
+    for solver in ["implicit"]:
         solver_results[solver] = {}
         for size in x_values:
             print("----------------------")
