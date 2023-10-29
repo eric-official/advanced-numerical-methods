@@ -39,9 +39,7 @@ def calculate_jacobi(T, nx, ny, dx, dy, alpha):
         # Calculate with Jacobi method
         for i in range(1, (nx - 1)):
             for j in range(1, (ny - 1)):
-                a = (T_decay[i + 1, j] - 2 * T_decay[i, j] + T_decay[i - 1, j]) / dx ** 2  # d2dx2
-                b = (T_decay[i, j + 1] - 2 * T_decay[i, j] + T_decay[i, j - 1]) / dy ** 2  # d2dy2
-                T[i, j] = alpha * (a + b) + T_decay[i, j]
+                T[i, j] = 0.25 * (T_decay[i - 1, j] + T_decay[i + 1, j] + T_decay[i, j - 1] + T_decay[i, j + 1])
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
@@ -70,9 +68,7 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
         # Calculate with Gauss Seidel method
         for i in range(1, (nx - 1)):
             for j in range(1, (ny - 1)):
-                a = (T_decay[i + 1, j] - 2 * T_decay[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
-                b = (T_decay[i, j + 1] - 2 * T_decay[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
-                T[i, j] = alpha * (a + b) + T_decay[i, j]
+                T[i, j] = 0.25 * (T[i - 1, j] + T_decay[i + 1, j] + T[i, j - 1] + T_decay[i, j + 1])
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
@@ -102,9 +98,7 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
         # Calculate with SOR method
         for i in range(1, (nx - 1)):
             for j in range(1, (ny - 1)):
-                a = (T_decay[i + 1, j] - 2 * T_decay[i, j] + T[i - 1, j]) / dx ** 2  # d2dx2
-                b = (T_decay[i, j + 1] - 2 * T_decay[i, j] + T[i, j - 1]) / dy ** 2  # d2dy2
-                T[i, j] = (1 - omega) * T_decay[i, j] + omega * (alpha * (a + b) + T[i, j])
+                T[i, j] = (1 - omega) * T_decay[i, j] + omega * 0.25 * (T[i - 1, j] + T_decay[i + 1, j] + T[i, j - 1] + T_decay[i, j + 1])
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
@@ -138,11 +132,10 @@ def calculate_exact(T, nx, ny, dx, dy):
 
 def calculate_mean_absolute_error(T_solved, T_exact, nx, ny):
     abs_diff_list = []
-    # print(nx, ny)
     for i in range(nx):
         for j in range(ny):
             abs_diff = abs(T_exact[i, j] - T_solved[i, j])
-            # print(T_exact[i, j], T_solved[i ,j], abs_diff)
+            print(T_exact[i, j], T_solved[i ,j], abs_diff)
             abs_diff_list.append(abs_diff)
 
     mae = sum(abs_diff_list) / len(abs_diff_list)
