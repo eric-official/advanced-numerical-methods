@@ -20,10 +20,10 @@ def calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho
             delx_w = xcell[i] - xcell[i - 1]
             dely_n = ycell[j + 1] - ycell[j]
             dely_s = ycell[j] - ycell[j - 1]
-            a_w[i - 1, j - 1] = gamma * dy / delx_w - rho * u[i - 1, j] * dy * (-1)
-            a_e[i - 1, j - 1] = gamma * dy / delx_e - rho * u[i, j] * dy
-            a_n[i - 1, j - 1] = gamma * dx / dely_n - rho * v[i, j] * dx
-            a_s[i - 1, j - 1] = gamma * dx / dely_s - rho * v[i, j - 1] * dx * (-1)
+            a_w[i - 1, j - 1] = gamma * dy / delx_w - min(rho * u[i - 1, j] * dy * (-1), 0)
+            a_e[i - 1, j - 1] = gamma * dy / delx_e - min(rho * u[i, j] * dy,0)
+            a_n[i - 1, j - 1] = gamma * dx / dely_n - min(rho * v[i, j] * dx,0)
+            a_s[i - 1, j - 1] = gamma * dx / dely_s - min(rho * v[i, j - 1] * dx * (-1), 0)
 
     return a_e, a_w, a_n, a_s
 
@@ -90,7 +90,7 @@ def calculate_sor(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
     current_error = decay_error = 10
     k = 0
     convergence = np.array([], float)
-    omega = 1.5
+    omega = 1.1
 
     a_p = np.zeros((nx, ny))
     for i in range(1, nx + 1):
@@ -183,7 +183,7 @@ def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
         convergence = np.append(convergence, current_error)
 
-    return T
+    return T, convergence
 
 
 def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma, u, v):
@@ -239,7 +239,7 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
         convergence = np.append(convergence, current_error)
 
-    return T
+    return T, convergence
 
 
 def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax):
@@ -265,7 +265,36 @@ def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax):
     plt.clf()
 
 
-def run_steady_main_logic(solver, size):
+def plot_error_convergence(conv_results, x_value, gamma=None):
+
+    if gamma is not None:
+        gs_values = conv_results["gauss-seidel"]
+        sor_values = conv_results["sor"]
+        plt.loglog(gs_values, label="Gauss Seidel: {}".format(len(gs_values)), linestyle="dashed")
+        plt.loglog(sor_values, label="SOR: {}".format(len(sor_values)))
+        plt.xlabel('Number of Iterations')
+        plt.ylabel('Residual')
+        plt.grid()
+        plt.title('Convergence History of steady equation with\n grid size {} and gamma={}'.format(x_value, gamma))
+        plt.legend()
+        plt.savefig("homework1-task2-plots/error-convergence-steady-{}-g{}.png".format(x_value, gamma), format="png")
+        plt.clf()
+
+    else:
+        explicit_values = conv_results["explicit"]
+        implicit_values = conv_results["implicit"]
+        plt.loglog(explicit_values, label="Explicit: {}".format(len(explicit_values)), linestyle="dashed")
+        plt.loglog(implicit_values, label="Implicit: {}".format(len(implicit_values)))
+        plt.xlabel('Number of Iterations')
+        plt.ylabel('Residual')
+        plt.grid()
+        plt.title('Convergence History of transient equation with grid size {}'.format(x_value))
+        plt.legend()
+        plt.savefig("homework1-task2-plots/error-convergence-transient-{}.png".format(x_value), format="png")
+        plt.clf()
+
+
+def run_steady_main_logic(solver, size, gamma):
     alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
 
     nx = ny = size
@@ -278,7 +307,6 @@ def run_steady_main_logic(solver, size):
     xmax = ymax = 1
     xmin = ymin = 0
 
-    gamma = 0.01
     rho = 1.0
 
     xnode = np.linspace(xmin, xmax, nx + 1)
@@ -311,8 +339,10 @@ def run_steady_main_logic(solver, size):
 
     plot_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax)
 
+    return T, convergence
 
-def run_unsteady_main_logic(solver, size):
+
+def run_transient_main_logic(solver, size):
     alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
 
     nx = ny = size
@@ -360,52 +390,65 @@ def run_unsteady_main_logic(solver, size):
 
     if solver == "explicit":
         a_e, a_w, a_n, a_s = calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho)
-        T = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_e, a_w, a_n, a_s, rho)
+        T, convergence = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_e, a_w, a_n, a_s, rho)
     elif solver == "implicit":
-        T = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma, u, v)
+        T, convergence = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma, u, v)
     else:
         raise TypeError('Solver not valid!')
 
     plot_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax)
 
+    return T, convergence
+
 
 def config_steady_search_space():
 
     # Initialize variables
-    x_values = [10, 20]
+    x_values = [5, 10, 15]
     solver_results = {}
 
     # Iterate over variable combinations
-    for solver in ["gauss-seidel", "sor"]:
-        solver_results[solver] = {}
-        for size in x_values:
-            print("----------------------")
-            print("Current solver is {} with grid size of {}". format(solver, size))
-            print("----------------------")
+    for size in x_values:
+        solver_results[size] = {}
+        for gamma in [0.01, 0.001]:
+            conv_results = {}
+            for solver in ["gauss-seidel", "sor"]:
+                print("----------------------")
+                print("Current solver is {} with grid size of {} gamma={}". format(solver, size, gamma))
+                print("----------------------")
 
-            run_steady_main_logic(solver, size)
+                T, convergence = run_steady_main_logic(solver, size, gamma)
+                solver_results[size][solver + " (gamma={})".format(gamma)] = T
+                conv_results[solver] = convergence
 
-            print(" ")
+                print(" ")
+
+            plot_error_convergence(conv_results, size, gamma)
 
 
-def config_unsteady_search_space():
+def config_transient_search_space():
     # Initialize variables
-    x_values = [10, 20]
+    x_values = [5, 10, 15]
     solver_results = {}
 
     # Iterate over variable combinations
-    for solver in ["explicit", "implicit"]:
-        solver_results[solver] = {}
-        for size in x_values:
+    for size in x_values:
+        solver_results[size] = {}
+        conv_results = {}
+        for solver in ["explicit", "implicit"]:
             print("----------------------")
             print("Current solver is {} with grid size of {}".format(solver, size))
             print("----------------------")
 
-            run_unsteady_main_logic(solver, size)
+            T, convergence = run_transient_main_logic(solver, size)
+            solver_results[size][solver] = T
+            conv_results[solver] = convergence
 
             print(" ")
 
+        plot_error_convergence(conv_results, size)
+
 
 if __name__ == '__main__':
-    #config_steady_search_space()
-    config_unsteady_search_space()
+    config_steady_search_space()
+    config_transient_search_space()

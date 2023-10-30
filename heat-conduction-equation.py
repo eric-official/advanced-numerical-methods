@@ -135,7 +135,6 @@ def calculate_mean_absolute_error(T_solved, T_exact, nx, ny):
     for i in range(nx):
         for j in range(ny):
             abs_diff = abs(T_exact[i, j] - T_solved[i, j])
-            print(T_exact[i, j], T_solved[i ,j], abs_diff)
             abs_diff_list.append(abs_diff)
 
     mae = sum(abs_diff_list) / len(abs_diff_list)
