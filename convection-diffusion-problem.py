@@ -350,8 +350,8 @@ def run_unsteady_main_logic(solver, size):
     gamma = 0.1
     rho = 1.2
 
-    dk = 0.02
-    max_k = 10000
+    dk = 0.0025
+    max_k = 1000
 
     # Courant-Friedrichs-Lewy (CFL) condition to ensure stability
     cfl_x = alpha * dk / (dx ** 2)
