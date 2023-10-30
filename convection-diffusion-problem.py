@@ -20,15 +20,15 @@ def calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho
             delx_w = xcell[i] - xcell[i - 1]
             dely_n = ycell[j + 1] - ycell[j]
             dely_s = ycell[j] - ycell[j - 1]
-            a_w[i - 1, j - 1] = gamma * dy / delx_w - min(rho * u[i - 1, j] * dy * (-1), 0)
-            a_e[i - 1, j - 1] = gamma * dy / delx_e - min(rho * u[i, j] * dy, 0)
-            a_n[i - 1, j - 1] = gamma * dx / dely_n - min(rho * v[i, j] * dx, 0)
-            a_s[i - 1, j - 1] = gamma * dx / dely_s - min(rho * v[i, j - 1] * dx * (-1), 0)
+            a_w[i - 1, j - 1] = gamma * dy / delx_w - rho * u[i - 1, j] * dy * (-1)
+            a_e[i - 1, j - 1] = gamma * dy / delx_e - rho * u[i, j] * dy
+            a_n[i - 1, j - 1] = gamma * dx / dely_n - rho * v[i, j] * dx
+            a_s[i - 1, j - 1] = gamma * dx / dely_s - rho * v[i, j - 1] * dx * (-1)
 
     return a_e, a_w, a_n, a_s
 
 
-def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
+def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B=None, a_p_im=None):
 
     # Initialize loop parameters
     current_error = decay_error = 10
@@ -43,7 +43,7 @@ def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
     while current_error >= 1e-5:
 
         # Print error every log10 steps
-        if int(math.log10(current_error)) != int(math.log10(decay_error)):
+        if int(math.log10(current_error)) != int(math.log10(decay_error)) and B is None:
             print("Current error", current_error)
         decay_error = current_error
 
@@ -51,24 +51,29 @@ def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
         for i in range(1, nx + 1):
             for j in range(1, ny + 1):
                 if i == 1:
-                    Tw = 1 - ycell[j]
+                    t_w = 1 - ycell[j]
                 else:
-                    Tw = T_decay[i - 1, j]
+                    t_w = T_decay[i - 1, j]
                 if i == nx:
-                    Te = T_decay[i, j]
+                    t_e = T_decay[i, j]
                 else:
-                    Te = T_decay[i + 1, j]
+                    t_e = T_decay[i + 1, j]
                 if j == 1:
-                    Ts = T_decay[i, j]
+                    t_s = T_decay[i, j]
                 else:
-                    Ts = T_decay[i, j - 1]
+                    t_s = T_decay[i, j - 1]
                 if j == ny:
-                    Tn = 0.0
+                    t_n = 0.0
                 else:
-                    Tn = T_decay[i, j + 1]
+                    t_n = T_decay[i, j + 1]
+
                 T_old = T[i, j]
-                T_new = (a_e[i - 1, j - 1] * Te + a_w[i - 1, j - 1] * Tw + a_n[i - 1, j - 1] * Tn + a_s[
-                    i - 1, j - 1] * Ts) / a_p[i - 1, j - 1]
+                if B is None:
+                    T_new = (a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[
+                        i - 1, j - 1] * t_s) / a_p[i - 1, j - 1]
+                else:
+                    T_new = (a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[
+                        i - 1, j - 1] * t_s + B[(j - 2) * nx + i - 1]) / a_p_im[i - 1, j - 1]
                 T[i, j] = T_old + (T_new - T_old)
 
         # Update loop parameters
@@ -185,8 +190,17 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
     ap0 = np.zeros((nx, ny))
     a_p = np.zeros((nx, ny))
 
+    current_error = decay_error = 10
+    convergence = np.array([], float)
+
     for k in np.arange(0, max_k):
-        Told = T.copy()
+
+        # Print error every log10 steps
+        if int(math.log10(current_error)) != int(math.log10(decay_error)):
+            print("Current error", current_error)
+        decay_error = current_error
+
+        T_decay = T.copy()
         a_e, a_w, a_n, a_s = calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho)
 
         for i in range(1, nx + 1):
@@ -195,11 +209,11 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
                 dy = ynode[j] - ynode[j - 1]
                 ap0[i - 1, j - 1] = rho * dx * dy / dk
                 a_p[i - 1, j - 1] = a_w[i - 1, j - 1] + a_e[i - 1, j - 1] + a_n[i - 1, j - 1] + a_s[i - 1, j - 1] + ap0[i - 1, j - 1]
-                B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * Told[i - 1, j - 1]
+                B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * T_decay[i - 1, j - 1]
 
         for i in range(1, nx + 1):
             for j in range(1, ny + 1):
-                B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * Told[i, j]
+                B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * T_decay[i, j]
 
         for i in range(0, nx):
             for j in range(0, ny):
@@ -218,47 +232,12 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
                     B[(j - 1) * nx + i] = a_n[i, j] * Tval + B[(j - 1) * nx + i]
                     a_n[i, j] = 0.0
 
-        tol = 1.e-5
-        iter_max = 10000
-        iter = 0
-        ea = 0.0
-
         T = np.zeros((nx + 2, ny + 2))
-        iter = 0
+        T, _ = calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B, a_p)
 
-        while True:
-            eamax = 0.0
-            for i in range(1, nx + 1):
-                for j in range(1, ny + 1):
-                    if i == 1:
-                        t_w = 1 - ycell[j] / ymax
-                    else:
-                        t_w = T[i - 1, j]
-                    if i == nx:
-                        t_e = T[i, j]
-                    else:
-                        t_e = T[i + 1, j]
-                    if j == 1:
-                        t_s = T[i, j]
-                    else:
-                        t_s = T[i, j - 1]
-                    if j == ny:
-                        t_n = 0
-                    else:
-                        t_n = T[i, j + 1]
-
-                    T_old = T[i, j]
-                    T_new = (a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[
-                        i - 1, j - 1] * t_s + B[(j - 2) * nx + i - 1]) / a_p[i - 1, j - 1]
-                    T[i, j] = T_old + (T_new - T_old)
-                    if T[i, j] != 0:
-                        ea = abs(T[i, j] - T_old) / T[i, j] * 100
-                    if ea >= eamax:
-                        eamax = ea
-
-            iter += 1
-            if iter >= iter_max or eamax <= tol:
-                break
+        # Update loop parameters
+        current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
+        convergence = np.append(convergence, current_error)
 
     return T
 
