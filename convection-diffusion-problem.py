@@ -74,12 +74,11 @@ def calculate_finite_volume(xnode, ynode, xcell, ycell, dx, dy, i, j, gamma, rho
     return a_e, a_w, a_n, a_s, a_p
 
 
-def calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dk):
+def calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho):
     a_w = np.zeros((nx, ny))
     a_e = np.zeros((nx, ny))
     a_n = np.zeros((nx, ny))
     a_s = np.zeros((nx, ny))
-    a_p = np.zeros((nx, ny))
 
     for i in range(1, nx + 1):
         dx = xnode[i] - xnode[i - 1]
@@ -93,10 +92,8 @@ def calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, g
             a_e[i - 1, j - 1] = gamma * dy / delx_e - rho * u[i, j] * dy
             a_n[i - 1, j - 1] = gamma * dx / dely_n - rho * v[i, j] * dx
             a_s[i - 1, j - 1] = gamma * dx / dely_s - rho * v[i, j - 1] * dx * (-1)
-            ap0 = rho * dx * dy / dk
-            a_p[i - 1, j - 1] = ap0
 
-    return a_e, a_w, a_n, a_s, a_p, ap0
+    return a_e, a_w, a_n, a_s
 
 
 def calculate_gauss_seidel(T, nx, ny, xnode, ynode, xcell, ycell, dx, dy, alpha):
@@ -222,7 +219,15 @@ def calculate_sor(T, nx, ny, xnode, ynode, xcell, ycell, dx, dy, alpha):
     return T, convergence
 
 
-def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, ycell, a_e, a_w, a_n, a_s, a_p, ap0):
+def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_e, a_w, a_n, a_s, rho):
+    a_p = np.zeros((nx, ny))
+    for i in range(1, nx + 1):
+        dx = xnode[i] - xnode[i - 1]
+        for j in range(1, ny + 1):
+            dy = ynode[j] - ynode[j - 1]
+            ap0 = rho * dx * dy / dk
+            a_p[i - 1, j - 1] = ap0
+
     for k in np.arange(0, max_k, dk):
         T_decay = T.copy()
         for i in range(1, nx + 1):
@@ -250,13 +255,13 @@ def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, ycell, a_e, a_w, a_n, a
     return T
 
 
-def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, a_e, a_w, a_n, a_s, gamma, u, v):
+def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma, u, v):
     ap0 = np.zeros((nx, ny))
     a_p = np.zeros((nx, ny))
 
     for k in np.arange(0, max_k):
         Told = T.copy()
-        a_e, a_w, a_n, a_s, _, _ = calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dk)
+        a_e, a_w, a_n, a_s = calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho)
 
         for i in range(1, nx + 1):
             dx = xnode[i] - xnode[i - 1]
@@ -469,11 +474,11 @@ def run_unsteady_main_logic(solver, size):
         for j in range(ny + 1):
             v[i, j] = -ynode[j]
 
-    a_e, a_w, a_n, a_s, a_p, ap0 = calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho, dk)
     if solver == "explicit":
-        T = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, ycell, a_e, a_w, a_n, a_s, a_p, ap0)
+        a_e, a_w, a_n, a_s = calculate_unsteady_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho)
+        T = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_e, a_w, a_n, a_s, rho)
     elif solver == "implicit":
-        T = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, a_e, a_w, a_n, a_s, gamma, u, v)
+        T = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma, u, v)
     else:
         raise TypeError('Solver not valid!')
     plot_unsteady_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax)
@@ -504,7 +509,7 @@ def config_unsteady_search_space():
     solver_results = {}
 
     # Iterate over variable combinations
-    for solver in ["implicit"]:
+    for solver in ["explicit", "implicit"]:
         solver_results[solver] = {}
         for size in x_values:
             print("----------------------")
