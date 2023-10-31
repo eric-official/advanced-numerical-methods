@@ -1,14 +1,13 @@
 import math
 
-import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
+import numpy as np
 
-np.seterr(divide = 'ignore')
+np.seterr(divide='ignore')
 
 
 def initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t):
+    # Initialize grid
     T = np.zeros((nx, ny))
 
     # Boundary conditions set-up
@@ -21,14 +20,14 @@ def initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t):
     return T
 
 
-def calculate_jacobi(T, nx, ny, dx, dy, alpha):
-
+def calculate_jacobi(T, nx, ny):
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
     convergence = np.array([], float)
     T_decay = np.copy(T)
 
+    # Calculate with Jacobi method until error threshold is reached
     while current_error >= 1e-5:
 
         # Print error every log10 steps
@@ -50,14 +49,14 @@ def calculate_jacobi(T, nx, ny, dx, dy, alpha):
     return T, convergence
 
 
-def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
-
+def calculate_gauss_seidel(T, nx, ny):
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
     convergence = np.array([], float)
     T_decay = np.copy(T)
 
+    # Calculate with Gauss Seidel method until error threshold is reached
     while current_error >= 1e-5:
 
         # Print error every log10 steps
@@ -79,8 +78,7 @@ def calculate_gauss_seidel(T, nx, ny, dx, dy, alpha):
     return T, convergence
 
 
-def calculate_sor(T, nx, ny, dx, dy, alpha):
-
+def calculate_sor(T, nx, ny):
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
@@ -88,6 +86,7 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
     T_decay = np.copy(T)
     omega = 1.5
 
+    # Calculate with SOR method until error threshold is reached
     while current_error >= 1e-5:
 
         # Print error every log10 steps
@@ -98,7 +97,8 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
         # Calculate with SOR method
         for i in range(1, (nx - 1)):
             for j in range(1, (ny - 1)):
-                T[i, j] = (1 - omega) * T_decay[i, j] + omega * 0.25 * (T[i - 1, j] + T_decay[i + 1, j] + T[i, j - 1] + T_decay[i, j + 1])
+                T[i, j] = (1 - omega) * T_decay[i, j] + omega * 0.25 * (
+                            T[i - 1, j] + T_decay[i + 1, j] + T[i, j - 1] + T_decay[i, j + 1])
 
         # Update loop parameters
         current_error = abs(np.linalg.norm(T) - np.linalg.norm(T_decay))
@@ -112,15 +112,16 @@ def calculate_sor(T, nx, ny, dx, dy, alpha):
 def calculate_exact(T, nx, ny, dx, dy):
     equation_steps = 10
 
+    # Iterate over grid
     for i in range(1, (nx - 1)):
         x = i * dx
         for j in range(1, (ny - 1)):
             y = j * dy
 
+            # Calculate exact solution
             sum_loop = 0
             for n in range(1, equation_steps):
-
-                factor1 = ((-1)**(n+1)+1)/n
+                factor1 = ((-1) ** (n + 1) + 1) / n
                 factor2 = math.sin(n * math.pi * x)
                 factor3 = (math.sinh(n * math.pi * y)) / (math.sinh(n * math.pi))
                 sum_loop += factor1 * factor2 * factor3
@@ -155,7 +156,7 @@ def plot_contour(X, Y, T, solver, size):
 def plot_centerline(solver_results, x_values):
     for key, value in solver_results.items():
         for el in x_values:
-            plt.plot(np.linspace(0, 1, el, endpoint=True), value[el]["centerline"], label="Size "+str(el))
+            plt.plot(np.linspace(0, 1, el, endpoint=True), value[el]["centerline"], label="Size " + str(el))
         plt.title("Centerline plot for {}".format(key))
         plt.xlabel("Y")
         plt.ylabel("Phi")
@@ -204,17 +205,12 @@ def plot_mae(solver_results, x_values):
 
 
 def run_main_logic(solver, size):
-    # Physical parameters
-    alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
-    # k = 9.7e-5 # thermal diffusivity of aluminium
     L = 1.0  # length
     W = 1.0  # width
 
     # Numerical parameters
     nx = size  # number of points in x direction
     ny = size  # number of points in y direction
-    dk = 0.01  # time step
-    max_k = 10000  # final time
 
     # Boundary conditions (Dirichlet)
     lower_t = 0
@@ -226,13 +222,6 @@ def run_main_logic(solver, size):
     dx = L / nx
     dy = W / ny
 
-    # Courant-Friedrichs-Lewy (CFL) condition to ensure stability
-    cfl_x = alpha * dk / (dx ** 2)
-    cfl_y = alpha * dk / (dy ** 2)
-
-    if cfl_x > 0.5 or cfl_y > 0.5:
-        raise TypeError('Unstable Solution!')
-
     # Generate 2D mesh
     X = np.linspace(0, L, nx, endpoint=True)
     Y = np.linspace(0, W, ny, endpoint=True)
@@ -241,11 +230,11 @@ def run_main_logic(solver, size):
     T_init = initialize_grid(nx, ny, lower_t, upper_t, left_t, right_t)
 
     if solver == "jacobi":
-        T_solved, convergence = calculate_jacobi(T_init, nx, ny, dx, dy, alpha)
+        T_solved, convergence = calculate_jacobi(T_init, nx, ny)
     elif solver == "gauss-seidel":
-        T_solved, convergence = calculate_gauss_seidel(T_init, nx, ny, dx, dy, alpha)
+        T_solved, convergence = calculate_gauss_seidel(T_init, nx, ny)
     elif solver == "sor":
-        T_solved, convergence = calculate_sor(T_init, nx, ny, dx, dy, alpha)
+        T_solved, convergence = calculate_sor(T_init, nx, ny)
     else:
         raise TypeError('Solver not valid!')
 
@@ -260,7 +249,6 @@ def run_main_logic(solver, size):
 
 
 def config_search_space():
-
     # Initialize variables
     x_values = [20, 50]
     solver_results = {}
@@ -270,7 +258,7 @@ def config_search_space():
         solver_results[solver] = {}
         for size in x_values:
             print("----------------------")
-            print("Current solver is {} with grid size of {}". format(solver, size))
+            print("Current solver is {} with grid size of {}".format(solver, size))
             print("----------------------")
 
             solver_results[solver][size] = {}
@@ -281,20 +269,11 @@ def config_search_space():
 
             print(" ")
 
+    # Plot results
     plot_centerline(solver_results, x_values)
     plot_error_convergence(solver_results, x_values)
     plot_mae(solver_results, x_values)
 
 
-def manual_run(solver, size):
-    if solver is None:
-        raise TypeError('Solver is not configured!')
-    elif size is None:
-        raise TypeError('Size is not configured!')
-    else:
-        run_main_logic(solver, size)
-
-
 if __name__ == '__main__':
     config_search_space()
-
