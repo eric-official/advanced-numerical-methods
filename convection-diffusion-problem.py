@@ -1,45 +1,49 @@
 import math
 
-import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
+import numpy as np
 
 
 def calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho):
+
+    # Initialize variables
     a_w = np.zeros((nx, ny))
     a_e = np.zeros((nx, ny))
     a_n = np.zeros((nx, ny))
     a_s = np.zeros((nx, ny))
 
+    # Iterate over grid
     for i in range(1, nx + 1):
         dx = xnode[i] - xnode[i - 1]
         for j in range(1, ny + 1):
+
+            # Calculate finite volume with upwind scheme
             dy = ynode[j] - ynode[j - 1]
             delx_e = xcell[i + 1] - xcell[i]
             delx_w = xcell[i] - xcell[i - 1]
             dely_n = ycell[j + 1] - ycell[j]
             dely_s = ycell[j] - ycell[j - 1]
             a_w[i - 1, j - 1] = gamma * dy / delx_w - min(rho * u[i - 1, j] * dy * (-1), 0)
-            a_e[i - 1, j - 1] = gamma * dy / delx_e - min(rho * u[i, j] * dy,0)
-            a_n[i - 1, j - 1] = gamma * dx / dely_n - min(rho * v[i, j] * dx,0)
+            a_e[i - 1, j - 1] = gamma * dy / delx_e - min(rho * u[i, j] * dy, 0)
+            a_n[i - 1, j - 1] = gamma * dx / dely_n - min(rho * v[i, j] * dx, 0)
             a_s[i - 1, j - 1] = gamma * dx / dely_s - min(rho * v[i, j - 1] * dx * (-1), 0)
 
     return a_e, a_w, a_n, a_s
 
 
 def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B=None, a_p_im=None):
-
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
     convergence = np.array([], float)
 
+    # Calculate a_p
     a_p = np.zeros((nx, ny))
     for i in range(1, nx + 1):
         for j in range(1, ny + 1):
             a_p[i - 1, j - 1] = a_e[i - 1, j - 1] + a_w[i - 1, j - 1] + a_n[i - 1, j - 1] + a_s[i - 1, j - 1]
 
+    # Calculate with Gauss Seidel method until error threshold is reached
     while current_error >= 1e-5:
 
         # Print error every log10 steps
@@ -50,6 +54,8 @@ def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B=None, a_p_im=
         T_decay = T.copy()
         for i in range(1, nx + 1):
             for j in range(1, ny + 1):
+
+                # Set flow conditions
                 if i == 1:
                     t_w = 1 - ycell[j]
                 else:
@@ -67,6 +73,7 @@ def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B=None, a_p_im=
                 else:
                     t_n = T_decay[i, j + 1]
 
+                # Calculate new temperature with depending on if calculation is for implicit euler or not
                 T_old = T[i, j]
                 if B is None:
                     T_new = (a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[
@@ -85,7 +92,6 @@ def calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B=None, a_p_im=
 
 
 def calculate_sor(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
-
     # Initialize loop parameters
     current_error = decay_error = 10
     k = 0
@@ -107,6 +113,8 @@ def calculate_sor(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
         T_decay = T.copy()
         for i in range(1, nx + 1):
             for j in range(1, ny + 1):
+
+                # Set flow conditions
                 if i == 1:
                     Tw = 1 - ycell[j]
                 else:
@@ -123,6 +131,8 @@ def calculate_sor(T, nx, ny, ycell, a_e, a_w, a_n, a_s):
                     Tn = 0.0
                 else:
                     Tn = T_decay[i, j + 1]
+
+                # Calculate new temperature
                 T_old = T[i, j]
                 T_new = (a_e[i - 1, j - 1] * Te + a_w[i - 1, j - 1] * Tw + a_n[i - 1, j - 1] * Tn + a_s[
                     i - 1, j - 1] * Ts) / a_p[i - 1, j - 1]
@@ -148,6 +158,7 @@ def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_
     current_error = decay_error = 10
     convergence = np.array([], float)
 
+    # Calculate with explicit Euler method for max_k steps
     for k in np.arange(0, max_k):
 
         # Print error every log10 steps
@@ -158,6 +169,8 @@ def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_
         T_decay = T.copy()
         for i in range(1, nx + 1):
             for j in range(1, ny + 1):
+
+                # Set flow conditions
                 if i == 1:
                     t_w = 1 - ycell[j] / ymax
                 else:
@@ -174,9 +187,13 @@ def calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_
                     t_n = 0.0
                 else:
                     t_n = T_decay[i, j + 1]
+
+                # Calculate new temperature
                 t_p = T_decay[i, j]
-                T[i, j] = a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[i - 1, j - 1] * t_s + (
-                        ap0 - a_e[i - 1, j - 1] - a_w[i - 1, j - 1] - a_n[i - 1, j - 1] - a_s[i - 1, j - 1]) * t_p
+                T[i, j] = a_e[i - 1, j - 1] * t_e + a_w[i - 1, j - 1] * t_w + a_n[i - 1, j - 1] * t_n + a_s[
+                    i - 1, j - 1] * t_s + (
+                                  ap0 - a_e[i - 1, j - 1] - a_w[i - 1, j - 1] - a_n[i - 1, j - 1] - a_s[
+                              i - 1, j - 1]) * t_p
                 T[i, j] = T[i, j] / a_p[i - 1, j - 1]
 
         # Update loop parameters
@@ -193,6 +210,7 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
     current_error = decay_error = 10
     convergence = np.array([], float)
 
+    # Calculate with implicit Euler method for max_k steps
     for k in np.arange(0, max_k):
 
         # Print error every log10 steps
@@ -208,15 +226,19 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
             for j in range(1, ny + 1):
                 dy = ynode[j] - ynode[j - 1]
                 ap0[i - 1, j - 1] = rho * dx * dy / dk
-                a_p[i - 1, j - 1] = a_w[i - 1, j - 1] + a_e[i - 1, j - 1] + a_n[i - 1, j - 1] + a_s[i - 1, j - 1] + ap0[i - 1, j - 1]
+                a_p[i - 1, j - 1] = a_w[i - 1, j - 1] + a_e[i - 1, j - 1] + a_n[i - 1, j - 1] + a_s[i - 1, j - 1] + ap0[
+                    i - 1, j - 1]
                 B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * T_decay[i - 1, j - 1]
 
+        # Calculate B coefficient
         for i in range(1, nx + 1):
             for j in range(1, ny + 1):
                 B[(j - 2) * nx + i - 1] = ap0[i - 1, j - 1] * T_decay[i, j]
 
         for i in range(0, nx):
             for j in range(0, ny):
+
+                # Set flow conditions
                 if i == 0:
                     Tval = 1 - ycell[j + 1] / ymax
                     B[(j - 1) * nx + i] = a_w[i, j] * Tval + B[(j - 1) * nx + i]
@@ -232,6 +254,7 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
                     B[(j - 1) * nx + i] = a_n[i, j] * Tval + B[(j - 1) * nx + i]
                     a_n[i, j] = 0.0
 
+        # Calculate new temperature with Gauss Seidel method
         T = np.zeros((nx + 2, ny + 2))
         T, _ = calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s, B, a_p)
 
@@ -244,6 +267,7 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
 
 def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax, gamma=None):
 
+    # Apply boundary conditions
     for i in range(nx + 2):
         for j in range(ny + 2):
             if i == 0:
@@ -255,6 +279,7 @@ def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax, gamma=None):
             elif j == ny + 1:
                 T[i, j] = 0.0
 
+    # Plot contour
     fig = plt.figure()
     ax = fig.add_subplot(111)
     cs = ax.contourf(X, Y, T[:, :], levels=20, cmap='viridis_r')
@@ -269,7 +294,6 @@ def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax, gamma=None):
 
 
 def plot_error_convergence(conv_results, x_value, gamma=None):
-
     if gamma is not None:
         gs_values = conv_results["gauss-seidel"]
         sor_values = conv_results["sor"]
@@ -303,20 +327,23 @@ def plot_grid_density_errors(solver_results):
         mae = []
         for compare in [5, 10]:
 
+            # Calculate indices for fine and coarse grid that have same value in range 0, 1
             fine_idx = []
             compare_idx = []
             for pos_fine in range(18):
-                for pos_compare in range(compare+3):
+                for pos_compare in range(compare + 3):
                     if (pos_compare * (1 / 17) == (pos_fine * (1 / (compare + 2)))):
                         fine_idx.append(pos_fine)
                         compare_idx.append(pos_compare)
 
+            # Calculate absolute error for all combinations of grid indices
             absolute_errors = []
             for i in fine_idx:
                 for j in fine_idx:
                     for x in compare_idx:
                         for y in compare_idx:
-                            absolute_errors.append(abs(solver_results[solver][15][i][j] - solver_results[solver][compare][x][y]))
+                            absolute_errors.append(
+                                abs(solver_results[solver][15][i][j] - solver_results[solver][compare][x][y]))
 
             mae.append(np.mean(absolute_errors))
 
@@ -334,8 +361,8 @@ def plot_grid_density_errors(solver_results):
 
 
 def run_steady_main_logic(solver, size, gamma):
-    alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
 
+    # Initialize variables and grid
     nx = ny = size
 
     T = np.zeros((nx + 2, ny + 2))
@@ -348,6 +375,7 @@ def run_steady_main_logic(solver, size, gamma):
 
     rho = 1.0
 
+    # Initialize variables for finite volume calculation
     xnode = np.linspace(xmin, xmax, nx + 1)
     xcell = np.linspace(xmin + dx / 2, xmax - dx / 2, nx)
     xcell = np.concatenate(([xmin], xcell, [xmax]))
@@ -356,6 +384,7 @@ def run_steady_main_logic(solver, size, gamma):
     ycell = np.linspace(ymin + dy / 2, ymax - dy / 2, ny)
     ycell = np.concatenate(([ymin], ycell, [ymax]))
 
+    # Initialize convection velocity
     u = np.zeros((nx + 1, nx + 1))
     v = np.zeros((ny + 1, ny + 1))
 
@@ -367,8 +396,10 @@ def run_steady_main_logic(solver, size, gamma):
         for j in range(ny + 1):
             v[i, j] = -ynode[j]
 
+    # Calculate finite volume
     a_e, a_w, a_n, a_s = calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho)
 
+    # Calculate with Gauss Seidel or SOR method
     if solver == "gauss-seidel":
         T, convergence = calculate_gauss_seidel(T, nx, ny, ycell, a_e, a_w, a_n, a_s)
     elif solver == "sor":
@@ -376,12 +407,14 @@ def run_steady_main_logic(solver, size, gamma):
     else:
         raise TypeError('Solver not valid!')
 
+    # Plot contour
     plot_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax, gamma)
 
     return T, convergence
 
 
 def run_transient_main_logic(solver, size):
+    # Initialize variables and grid
     alpha = 1.172e-5  # thermal diffusivity of steel with 1% carbon
 
     nx = ny = size
@@ -408,6 +441,7 @@ def run_transient_main_logic(solver, size):
     if cfl_x > 0.5 or cfl_y > 0.5:
         raise TypeError('Unstable Solution!')
 
+    # Initialize variables for finite volume calculation
     xnode = np.linspace(xmin, xmax, nx + 1)
     xcell = np.linspace(xmin + dx / 2, xmax - dx / 2, nx)
     xcell = np.concatenate(([xmin], xcell, [xmax]))
@@ -416,6 +450,7 @@ def run_transient_main_logic(solver, size):
     ycell = np.linspace(ymin + dy / 2, ymax - dy / 2, ny)
     ycell = np.concatenate(([ymin], ycell, [ymax]))
 
+    # Initialize convection velocity
     u = np.zeros((nx + 1, nx + 1))
     v = np.zeros((ny + 1, ny + 1))
 
@@ -427,21 +462,24 @@ def run_transient_main_logic(solver, size):
         for j in range(ny + 1):
             v[i, j] = -ynode[j]
 
+    # Calculate with explicit or implicit Euler method
     if solver == "explicit":
         a_e, a_w, a_n, a_s = calculate_finite_volume(nx, ny, xnode, ynode, xcell, ycell, u, v, gamma, rho)
-        T, convergence = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_e, a_w, a_n, a_s, rho)
+        T, convergence = calculate_explicit_euler(T, max_k, dk, nx, ny, ymax, xnode, ynode, ycell, a_e, a_w, a_n, a_s,
+                                                  rho)
     elif solver == "implicit":
-        T, convergence = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma, u, v)
+        T, convergence = calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, ynode, ycell, gamma,
+                                                  u, v)
     else:
         raise TypeError('Solver not valid!')
 
+    # Plot contour
     plot_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax)
 
     return T, convergence
 
 
 def config_steady_search_space():
-
     # Initialize variables
     x_values = [5, 10, 15]
     solver_results = {"gauss-seidel (gamma=0.01)": {}, "gauss-seidel (gamma=0.001)": {},
@@ -453,7 +491,7 @@ def config_steady_search_space():
             conv_results = {}
             for solver in ["gauss-seidel", "sor"]:
                 print("----------------------")
-                print("Current solver is {} with grid size of {} gamma={}". format(solver, size, gamma))
+                print("Current solver is {} with grid size of {} gamma={}".format(solver, size, gamma))
                 print("----------------------")
 
                 T, convergence = run_steady_main_logic(solver, size, gamma)
@@ -492,10 +530,13 @@ def config_transient_search_space():
 
 
 if __name__ == '__main__':
+    # Solve steady and transient equation
     steady_solver_results = config_steady_search_space()
     transient_solver_results = config_transient_search_space()
 
+    # Merge results of solutions
     merged_solver_results = steady_solver_results.copy()
     merged_solver_results.update(transient_solver_results)
 
+    # Plot grid density errors with finest grid as reference
     plot_grid_density_errors(merged_solver_results)
