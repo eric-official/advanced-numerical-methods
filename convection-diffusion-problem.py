@@ -1,4 +1,5 @@
 import math
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -530,6 +531,10 @@ def config_transient_search_space():
 
 
 if __name__ == '__main__':
+    # if the demo_folder directory is not present then create it
+    if not os.path.exists("homework1-task2-plots"):
+        os.makedirs("homework1-task2-plots")
+
     # Solve steady and transient equation
     steady_solver_results = config_steady_search_space()
     transient_solver_results = config_transient_search_space()

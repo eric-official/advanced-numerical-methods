@@ -1,4 +1,5 @@
 import math
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -276,4 +277,8 @@ def config_search_space():
 
 
 if __name__ == '__main__':
+    # if the demo_folder directory is not present then create it
+    if not os.path.exists("homework1-task1-plots"):
+        os.makedirs("homework1-task1-plots")
+
     config_search_space()
