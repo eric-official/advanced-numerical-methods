@@ -242,7 +242,7 @@ def calculate_implicit_euler(B, T, max_k, dk, nx, ny, ymax, rho, xnode, xcell, y
     return T, convergence
 
 
-def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax):
+def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax, gamma=None):
 
     for i in range(nx + 2):
         for j in range(ny + 2):
@@ -261,7 +261,10 @@ def plot_contour(X, Y, T, solver, size, nx, ny, ycell, ymax):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     fig.colorbar(cs, ticks=[i for i in np.arange(0.0, 1.05, 0.05)], label="Phi")
-    plt.savefig("homework1-task2-plots/contour-{}-{}.png".format(solver, size), format="png")
+    if gamma is not None:
+        plt.savefig("homework1-task2-plots/contour-{}-{}-g{}.png".format(solver, size, gamma), format="png")
+    else:
+        plt.savefig("homework1-task2-plots/contour-{}-{}.png".format(solver, size), format="png")
     plt.clf()
 
 
@@ -292,6 +295,42 @@ def plot_error_convergence(conv_results, x_value, gamma=None):
         plt.legend()
         plt.savefig("homework1-task2-plots/error-convergence-transient-{}.png".format(x_value), format="png")
         plt.clf()
+
+
+def plot_grid_density_errors(solver_results):
+    for solver in solver_results.keys():
+
+        mae = []
+        for compare in [5, 10]:
+
+            fine_idx = []
+            compare_idx = []
+            for pos_fine in range(18):
+                for pos_compare in range(compare+3):
+                    if (pos_compare * (1 / 17) == (pos_fine * (1 / (compare + 2)))):
+                        fine_idx.append(pos_fine)
+                        compare_idx.append(pos_compare)
+
+            absolute_errors = []
+            for i in fine_idx:
+                for j in fine_idx:
+                    for x in compare_idx:
+                        for y in compare_idx:
+                            absolute_errors.append(abs(solver_results[solver][15][i][j] - solver_results[solver][compare][x][y]))
+
+            mae.append(np.mean(absolute_errors))
+
+        plt.plot([5, 10], mae, label=solver)
+
+    # Edit plot settings
+    plt.xlabel("Delta X")
+    plt.ylabel("Error")
+    plt.xscale("log")
+    plt.legend()
+    plt.grid()
+    plt.title("Error of matrix solvers with different grid densities")
+    plt.savefig("homework1-task2-plots/grid-density-errors.png", format="png")
+    plt.clf()
 
 
 def run_steady_main_logic(solver, size, gamma):
@@ -337,7 +376,7 @@ def run_steady_main_logic(solver, size, gamma):
     else:
         raise TypeError('Solver not valid!')
 
-    plot_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax)
+    plot_contour(xcell, ycell, T, solver, size, nx, ny, ycell, ymax, gamma)
 
     return T, convergence
 
@@ -405,11 +444,11 @@ def config_steady_search_space():
 
     # Initialize variables
     x_values = [5, 10, 15]
-    solver_results = {}
+    solver_results = {"gauss-seidel (gamma=0.01)": {}, "gauss-seidel (gamma=0.001)": {},
+                      "sor (gamma=0.01)": {}, "sor (gamma=0.001)": {}}
 
     # Iterate over variable combinations
     for size in x_values:
-        solver_results[size] = {}
         for gamma in [0.01, 0.001]:
             conv_results = {}
             for solver in ["gauss-seidel", "sor"]:
@@ -418,22 +457,23 @@ def config_steady_search_space():
                 print("----------------------")
 
                 T, convergence = run_steady_main_logic(solver, size, gamma)
-                solver_results[size][solver + " (gamma={})".format(gamma)] = T
+                solver_results[solver + " (gamma={})".format(gamma)][size] = T
                 conv_results[solver] = convergence
 
                 print(" ")
 
             plot_error_convergence(conv_results, size, gamma)
 
+    return solver_results
+
 
 def config_transient_search_space():
     # Initialize variables
     x_values = [5, 10, 15]
-    solver_results = {}
+    solver_results = {"explicit": {}, "implicit": {}}
 
     # Iterate over variable combinations
     for size in x_values:
-        solver_results[size] = {}
         conv_results = {}
         for solver in ["explicit", "implicit"]:
             print("----------------------")
@@ -441,14 +481,21 @@ def config_transient_search_space():
             print("----------------------")
 
             T, convergence = run_transient_main_logic(solver, size)
-            solver_results[size][solver] = T
+            solver_results[solver][size] = T
             conv_results[solver] = convergence
 
             print(" ")
 
         plot_error_convergence(conv_results, size)
 
+    return solver_results
+
 
 if __name__ == '__main__':
-    config_steady_search_space()
-    config_transient_search_space()
+    steady_solver_results = config_steady_search_space()
+    transient_solver_results = config_transient_search_space()
+
+    merged_solver_results = steady_solver_results.copy()
+    merged_solver_results.update(transient_solver_results)
+
+    plot_grid_density_errors(merged_solver_results)
