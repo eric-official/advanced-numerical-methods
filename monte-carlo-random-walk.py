@@ -1,4 +1,5 @@
 import math
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,12 +33,13 @@ def plot_histogram(final_positions, mu, sigma, num_steps):
     x_values = np.linspace(min(final_positions), max(final_positions), num_steps)
     pdf_values = normal_pdf(x_values, mu, sigma)
 
+    plt.grid()
     plt.hist(final_positions, bins=20, density=True, color='b')
     plt.plot(x_values, pdf_values, color='r')
     plt.title('Histogram of Final Positions in Random Walk')
     plt.xlabel('Final Position')
     plt.ylabel('Probability')
-    plt.show()
+    plt.savefig("homework2-task1-plots/histogram.png", format="png")
     plt.clf()
 
 
@@ -54,13 +56,14 @@ def plot_random_walks(random_walks):
     plt.xlabel('Step')
     plt.ylabel('Position')
 
-    plt.plot(pos_one_sigma, color='y')
+    plt.plot(pos_one_sigma, color='y', label='1 sigma')
     plt.plot(neg_one_sigma, color='y')
 
-    plt.plot(pos_two_sigma, color='r')
+    plt.plot(pos_two_sigma, color='r', label='2 sigma')
     plt.plot(neg_two_sigma, color='r')
 
-    plt.show()
+    plt.legend()
+    plt.savefig("homework2-task1-plots/random-walks.png", format="png")
     plt.clf()
 
 
@@ -81,4 +84,8 @@ def main():
 
 
 if __name__ == '__main__':
+    # if the demo_folder directory is not present then create it
+    if not os.path.exists("homework2-task1-plots"):
+        os.makedirs("homework2-task1-plots")
+
     main()
