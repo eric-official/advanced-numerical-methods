@@ -56,6 +56,7 @@ def plot_random_walks(random_walks):
     plt.xlabel('Step')
     plt.ylabel('Position')
 
+    plt.plot([0 for _ in range(len(random_walks[0]))], color='k', label='mu')
     plt.plot(pos_one_sigma, color='y', label='1 sigma')
     plt.plot(neg_one_sigma, color='y')
 
