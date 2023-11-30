@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import simps
-from scipy import fftpack
+from scipy import fftpack, signal
 import os
 
 
@@ -23,12 +23,12 @@ def main():
     # Set the frequency of the sawtooth wave (e.g., 5 Hz).
     x = np.linspace(0, 1, samples, endpoint=False)
     y = falling_sawtooth_wave(t, frequency)
-    
+
     # Calculation of Co-efficients
     a0 = 2. / L * simps(y, x)
     an = lambda n: 2.0 / L * simps(y * np.cos(2. * np.pi * n * x / L), x)
     bn = lambda n: 2.0 / L * simps(y * np.sin(2. * np.pi * n * x / L), x)
-
+    print("a0", a0)
     # Sum of the series
     h = a0 / 2. + sum([an(k) * np.cos(2. * np.pi * k * x / L) + bn(k) * np.sin(2. * np.pi *
                                                                                k * x / L) for k in range(1, k + 1)])
@@ -39,7 +39,7 @@ def main():
     h4 = np.tile(h, 4)
 
     # Plot sawtooth wave
-    plt.plot(x4, h4)
+    plt.plot(x4, y4)
     plt.xlabel("$t$")
     plt.ylabel("$y=h(t)$")
     plt.title("Sawtooth wave signal analysis with Fouries series")
@@ -49,7 +49,7 @@ def main():
     plt.clf()
 
     # Plot fourier series expansion
-    plt.plot(x4, y4)
+    plt.plot(x4, h4)
     plt.xlabel("$t$")
     plt.ylabel("$y=h(t)$")
     plt.title("Sawtooth wave signal analysis with Fouries series")

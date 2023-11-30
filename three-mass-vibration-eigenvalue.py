@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import inv
 from sympy import Matrix, symbols, solve
+import os
 
 
 def power_iteration(matrix, eigenvector, max_iterations=1000, tolerance=1e-10):
@@ -134,9 +135,13 @@ def main(algorithm):
     plt.title(algorithm + f': Output vs. time, x_i(0)={", ".join(map(lambda x: f"{x:.2f}", x0))} '
               f'\u03B3_i={", ".join(map(lambda x: f"{x:.2f}", gam))}')
     plt.legend()
-    plt.show()
+    plt.savefig(f'homework2-task2-plots/modal shapes-{algorithm}.png', format='png')
 
 
 if __name__ == '__main__':
+    # if the demo_folder directory is not present then create it
+    if not os.path.exists("homework2-task2-plots"):
+        os.makedirs("homework2-task2-plots")
+
     for alg in ["Shifted Power Method", "QR Algorithm"]:
         main(alg)
