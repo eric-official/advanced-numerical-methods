@@ -1,5 +1,7 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.linalg import inv
+from sympy import Matrix, symbols, solve
 
 
 def power_iteration(matrix, eigenvector, max_iterations=1000, tolerance=1e-10):
@@ -48,6 +50,24 @@ def shifted_power_iteration(matrix, num_eigenvalues=3, max_iterations=1000, tole
     return np.array(eigenvalues)
 
 
+def calculate_middle_eigenvalue(eigenvalues):
+    # Calculate determinant of matrix with middle eigenvalue as a variable
+    l = symbols(['l'])[0]
+    matrix = Matrix([[-(50 / 1.5) - eigenvalues[0], 35 / 1.5, 0], [35 / 1.5, (-70 / 1.5) - l, 35 / 1.5],
+                     [0, 35 / 1.5, -(50 / 1.5) - eigenvalues[1]]])
+    determinant = matrix.det()
+
+    # Solve for middle eigenvalue
+    middle_eigenvalue = solve(determinant, l)[0]
+
+    # Set middle eigenvalue
+    eigenvalues.setflags(write=1)
+    eigenvalues[2] = middle_eigenvalue
+    eigenvalues = np.sort(eigenvalues)
+
+    return eigenvalues
+
+
 def qr_algorithm(matrix, max_iterations=1000, tolerance=1e-10):
     n = matrix.shape[0]
     eigenvalues = np.zeros(n, dtype=complex)
@@ -71,21 +91,27 @@ def qr_algorithm(matrix, max_iterations=1000, tolerance=1e-10):
     return eigenvalues
 
 
-def main():
-
+def main(algorithm):
     # Define Array from equations of motion.
-    A = np.array([[-(50/1.5), 35/1.5, 0], [35/1.5, -70/1.5, 35/1.5], [0, 35/1.5, -(50/1.5)]])  # 2 masses
-    _, eigenvectors = np.linalg.eig(A)           # Find Eigenvalues and vectors.
-    eigenvalues = shifted_power_iteration(A)                # Find Eigenvalues and vectors.
-    # eigenvalues = qr_algorithm(A)
-    eigenvalues = np.diag(eigenvalues)                     # nxn array with eigenvalues along the diagonal
-    omega = np.sqrt(np.diag(-eigenvalues))      # Get frequencies
+    A = np.array([[-(50 / 1.5), 35 / 1.5, 0], [35 / 1.5, -70 / 1.5, 35 / 1.5], [0, 35 / 1.5, -(50 / 1.5)]])  # 2 masses
+    _, eigenvectors = np.linalg.eig(A)  # Find Eigenvalues and vectors.
+
+    if algorithm == "Shifted Power Method":
+        eigenvalues = shifted_power_iteration(A)  # Find Eigenvalues and vectors.
+        eigenvalues = calculate_middle_eigenvalue(eigenvalues)  # Find middle eigenvalue
+    elif algorithm == "QR Algorithm":
+        eigenvalues = qr_algorithm(A)
+    else:
+        raise TypeError('Algorithm not valid!')
+
+    eigenvalues = np.diag(eigenvalues)  # nxn array with eigenvalues along the diagonal
+    omega = np.sqrt(np.diag(-eigenvalues))  # Get frequencies
     x0 = np.array([1, 1, 1])
     gam = np.linalg.inv(eigenvectors) @ x0
 
     # nxn array with coefficients of gamma along the diagonal
     g = np.diag(gam)
-    t = np.arange(0, 20.2, 0.2)       # 1xM Time vector (for plotting)
+    t = np.arange(0, 20.2, 0.2)  # 1xM Time vector (for plotting)
 
     # cos(omega*t) is an nxM array with cos(w1*t),...,cos(wn*t) in rows
     x = eigenvectors @ g @ np.cos(np.outer(omega, t))  # Calculate output
@@ -101,15 +127,16 @@ def main():
     # Plot the output trajectories
     plt.figure(figsize=(10, 6))
     for i in range(A.shape[0]):
-        plt.plot(t, x[i, :], label=f'Out_{i+1}')
+        plt.plot(t, x[i, :], label=f'Out_{i + 1}')
 
     plt.xlabel('Time')
     plt.ylabel('Output')
-    plt.title(f'Output vs. time, x_i(0)={", ".join(map(lambda x: f"{x:.2f}", x0))} '
+    plt.title(algorithm + f': Output vs. time, x_i(0)={", ".join(map(lambda x: f"{x:.2f}", x0))} '
               f'\u03B3_i={", ".join(map(lambda x: f"{x:.2f}", gam))}')
     plt.legend()
     plt.show()
 
 
 if __name__ == '__main__':
-    main()
+    for alg in ["Shifted Power Method", "QR Algorithm"]:
+        main(alg)
