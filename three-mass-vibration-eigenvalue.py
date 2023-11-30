@@ -130,8 +130,8 @@ def main(algorithm):
     for i in range(A.shape[0]):
         plt.plot(eigenvectors[i, :], label=f'Mode_{i + 1}')
 
-    plt.xlabel('Time')
-    plt.ylabel('Output')
+    plt.xlabel('Elements')
+    plt.ylabel('Mode Amplitude')
     plt.title(f"{algorithm}: Modal Shapes")
     plt.legend()
     plt.grid()
