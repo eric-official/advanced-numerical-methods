@@ -128,13 +128,13 @@ def main(algorithm):
     # Plot the output trajectories
     plt.figure(figsize=(10, 6))
     for i in range(A.shape[0]):
-        plt.plot(t, x[i, :], label=f'Out_{i + 1}')
+        plt.plot(eigenvectors[i, :], label=f'Mode_{i + 1}')
 
     plt.xlabel('Time')
     plt.ylabel('Output')
-    plt.title(algorithm + f': Output vs. time, x_i(0)={", ".join(map(lambda x: f"{x:.2f}", x0))} '
-              f'\u03B3_i={", ".join(map(lambda x: f"{x:.2f}", gam))}')
+    plt.title(f"{algorithm}: Modal Shapes")
     plt.legend()
+    plt.grid()
     plt.savefig(f'homework2-task2-plots/modal shapes-{algorithm}.png', format='png')
 
 
