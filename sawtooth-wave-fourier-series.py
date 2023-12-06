@@ -28,7 +28,7 @@ def main():
     a0 = 2. / L * simps(y, x)
     an = lambda n: 2.0 / L * simps(y * np.cos(2. * np.pi * n * x / L), x)
     bn = lambda n: 2.0 / L * simps(y * np.sin(2. * np.pi * n * x / L), x)
-    print("a0", a0)
+
     # Sum of the series
     h = a0 / 2. + sum([an(k) * np.cos(2. * np.pi * k * x / L) + bn(k) * np.sin(2. * np.pi *
                                                                                k * x / L) for k in range(1, k + 1)])
@@ -79,7 +79,7 @@ def main():
     plt.plot(sample_freq[:int(samples/2)], np.imag(fft[:int(samples/2)]))
     plt.xlabel("Frequency [Hz]")
     plt.ylabel("Amplitude")
-    plt.title("Real part of FFT")
+    plt.title("Imaginary part of FFT")
     plt.grid()
     plt.savefig("homework2-task3-plots/fft-imaginary.png", format="png")
     plt.clf()
