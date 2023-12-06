@@ -42,7 +42,7 @@ def main():
     plt.plot(x4, y4)
     plt.xlabel("$t$")
     plt.ylabel("$y=h(t)$")
-    plt.title("Sawtooth wave signal analysis with Fouries series")
+    plt.title("Sawtooth wave signal analysis without Fouries series")
     plt.grid()
     plt.ylim([-1.5, 1.5])
     plt.savefig("homework2-task3-plots/sawtooth-wave.png", format="png")
