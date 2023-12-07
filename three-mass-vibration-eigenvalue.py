@@ -128,6 +128,19 @@ def main(algorithm):
     # Plot the output trajectories
     plt.figure(figsize=(10, 6))
     for i in range(A.shape[0]):
+        plt.plot(t, x[i, :], label=f'Out_{i + 1}')
+
+    plt.xlabel('Time')
+    plt.ylabel('Output')
+    plt.title(f"{algorithm}: Output Trajectories")
+    plt.legend()
+    plt.grid()
+    plt.savefig(f'homework2-task2-plots/output trajectories-{algorithm}.png', format='png')
+    plt.clf()
+
+    # Plot the model shapes
+    plt.figure(figsize=(10, 6))
+    for i in range(A.shape[0]):
         plt.plot(eigenvectors[i, :], label=f'Mode_{i + 1}')
 
     plt.xlabel('Elements')
@@ -136,6 +149,7 @@ def main(algorithm):
     plt.legend()
     plt.grid()
     plt.savefig(f'homework2-task2-plots/modal shapes-{algorithm}.png', format='png')
+    plt.clf()
 
 
 if __name__ == '__main__':
